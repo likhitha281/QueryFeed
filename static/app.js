@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const btnRefresh = document.getElementById('btn-refresh');
     const refreshIcon = btnRefresh.querySelector('.icon-sync');
+    const btnExport = document.getElementById('btn-export');
     const searchInput = document.getElementById('search-input');
     const filterTagsContainer = document.getElementById('filter-tags');
     const notesContainer = document.getElementById('notes-container');
@@ -149,6 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${note.content}
                 </div>
                 <div class="note-card-footer">
+                    <button class="btn btn-secondary btn-copy-trigger" data-id="${note.id}" title="Copy to clipboard">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span>Copy</span>
+                    </button>
                     <button class="btn btn-secondary btn-tweet-trigger" data-id="${note.id}">
                         <svg viewBox="0 0 24 24" fill="currentColor" style="width: 14px; height: 14px;">
                             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -167,6 +175,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 const selectedNote = releaseUpdates.find(u => u.id === noteId);
                 if (selectedNote) {
                     openTweetModal(selectedNote);
+                }
+            });
+        });
+
+        // Add event listeners to Copy buttons
+        document.querySelectorAll('.btn-copy-trigger').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const triggerBtn = e.currentTarget;
+                const noteId = triggerBtn.getAttribute('data-id');
+                const selectedNote = releaseUpdates.find(u => u.id === noteId);
+                if (selectedNote) {
+                    const textToCopy = `BigQuery Update [${selectedNote.date}] - ${selectedNote.type}:\n\n${selectedNote.text_content}\n\nRead more: ${selectedNote.link}`;
+                    try {
+                        await navigator.clipboard.writeText(textToCopy);
+                        // Visual feedback
+                        const btnText = triggerBtn.querySelector('span');
+                        const originalText = btnText.textContent;
+                        btnText.textContent = 'Copied!';
+                        triggerBtn.style.borderColor = 'var(--color-feature)';
+                        
+                        setTimeout(() => {
+                            btnText.textContent = originalText;
+                            triggerBtn.style.borderColor = '';
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Failed to copy to clipboard: ', err);
+                    }
                 }
             });
         });
@@ -269,9 +304,65 @@ document.addEventListener('DOMContentLoaded', () => {
         closeTweetModal();
     }
 
+    // Export to CSV helper
+    function exportToCSV(notes) {
+        const headers = ['Date', 'Category', 'Update Link', 'Content Summary'];
+        const csvRows = [headers.join(',')];
+        
+        notes.forEach(note => {
+            const cleanContent = note.text_content.replace(/"/g, '""');
+            const row = [
+                `"${note.date.replace(/"/g, '""')}"`,
+                `"${note.type.replace(/"/g, '""')}"`,
+                `"${(note.link || '').replace(/"/g, '""')}"`,
+                `"${cleanContent}"`
+            ];
+            csvRows.push(row.join(','));
+        });
+        
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        
+        const timestamp = new Date().toISOString().slice(0, 10);
+        link.setAttribute("download", `BigQuery_Releases_${currentFilter}_${timestamp}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
+
     // Event Listeners
     btnRefresh.addEventListener('click', fetchReleases);
     btnRetry.addEventListener('click', fetchReleases);
+    
+    // Export CSV listener
+    btnExport.addEventListener('click', () => {
+        let filtered = releaseUpdates;
+        if (currentFilter !== 'all') {
+            filtered = filtered.filter(u => u.type.toLowerCase() === currentFilter.toLowerCase());
+        }
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(u => 
+                u.content.toLowerCase().includes(query) || 
+                u.type.toLowerCase().includes(query) ||
+                u.date.toLowerCase().includes(query)
+            );
+        }
+        
+        if (filtered.length === 0) {
+            alert("No release notes available to export.");
+            return;
+        }
+        
+        exportToCSV(filtered);
+    });
     
     // Search filter input
     searchInput.addEventListener('input', (e) => {
