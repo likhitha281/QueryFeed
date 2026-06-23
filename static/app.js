@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRefresh = document.getElementById('btn-refresh');
     const refreshIcon = btnRefresh.querySelector('.icon-sync');
     const btnExport = document.getElementById('btn-export');
+    const btnThemeToggle = document.getElementById('btn-theme-toggle');
+    const iconSun = btnThemeToggle.querySelector('.icon-sun');
+    const iconMoon = btnThemeToggle.querySelector('.icon-moon');
     const searchInput = document.getElementById('search-input');
     const filterTagsContainer = document.getElementById('filter-tags');
     const notesContainer = document.getElementById('notes-container');
@@ -383,6 +386,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Theme Toggle functions
+    function initializeTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        if (savedTheme === 'light') {
+            document.body.classList.add('light-theme');
+            iconSun.style.display = 'none';
+            iconMoon.style.display = 'block';
+        } else {
+            document.body.classList.remove('light-theme');
+            iconSun.style.display = 'block';
+            iconMoon.style.display = 'none';
+        }
+    }
+
+    function toggleTheme() {
+        if (document.body.classList.contains('light-theme')) {
+            document.body.classList.remove('light-theme');
+            localStorage.setItem('theme', 'dark');
+            iconSun.style.display = 'block';
+            iconMoon.style.display = 'none';
+        } else {
+            document.body.classList.add('light-theme');
+            localStorage.setItem('theme', 'light');
+            iconSun.style.display = 'none';
+            iconMoon.style.display = 'block';
+        }
+    }
+
     // Modal listeners
     btnCloseModal.addEventListener('click', closeTweetModal);
     btnCancelTweet.addEventListener('click', closeTweetModal);
@@ -396,6 +427,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Fetch initial notes on load
+    // Theme listener
+    btnThemeToggle.addEventListener('click', toggleTheme);
+
+    // Initialize state on load
+    initializeTheme();
     fetchReleases();
 });
